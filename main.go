@@ -1,22 +1,40 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"sync/atomic"
+
+	"github.com/joho/godotenv"
+	"github.com/killuox/chirpy/internal/database"
+	_ "github.com/lib/pq"
 )
 
 const port = "8080"
 
 type apiConfig struct {
 	fileserverHits atomic.Int32
+	db             *database.Queries
 }
 
 func main() {
-	apiCfg := &apiConfig{}
+	godotenv.Load()
+
+	dbURL := os.Getenv("DB_URL")
+	db, err := sql.Open("postgres", dbURL)
+	if err != nil {
+		log.Panic()
+	}
+	dbQueries := database.New(db)
+
+	apiCfg := &apiConfig{
+		db: dbQueries,
+	}
 	mux := http.NewServeMux()
 
 	// APP
@@ -38,7 +56,7 @@ func main() {
 	fmt.Printf("Server starting on port %s...\n", port)
 
 	// Start the server
-	err := server.ListenAndServe()
+	err = server.ListenAndServe()
 	if err != nil && err != http.ErrServerClosed {
 		fmt.Printf("Server failed to start: %v\n", err)
 	} else if err == http.ErrServerClosed {
